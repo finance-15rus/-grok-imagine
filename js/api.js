@@ -218,65 +218,22 @@ const API = {
     async generateVideo(options) {
         const { prompt } = options;
 
-        if (!this.config.apiKey) {
-            throw new Error('API key not configured');
-        }
+        // Use local worker proxy to bypass CORS
+        const workerUrl = '/video';
 
-        if (this.config.provider !== 'replicate' && this.config.provider !== 'xai') {
-            throw new Error('Video generation requires Replicate API');
-        }
-
-        // Use Replicate for video generation
-        const createResponse = await fetch('https://api.replicate.com/v1/predictions', {
+        const response = await fetch(workerUrl, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Token ${this.config.apiKey}`
+                'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                version: 'video-forge/animatediff-highpy:latest',
-                input: {
-                    prompt: prompt,
-                    num_frames: 24,
-                    fps: 8,
-                    num_inference_steps: 25
-                }
-            })
+            body: JSON.stringify({ prompt })
         });
 
-        if (!createResponse.ok) {
-            const error = await createResponse.json().catch(() => ({}));
-            throw new Error(error.error?.message || `Replicate API error: ${createResponse.status}`);
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.error || 'Video generation failed');
         }
 
-        const prediction = await createResponse.json();
-        return this.pollReplicateVideoPrediction(prediction.urls.get, prediction.id);
-    },
-
-    async pollReplicateVideoPrediction(getUrl, predictionId, maxAttempts = 120) {
-        for (let i = 0; i < maxAttempts; i++) {
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            const response = await fetch(`${getUrl}`, {
-                headers: {
-                    'Authorization': `Token ${this.config.apiKey}`
-                }
-            });
-
-            if (!response.ok) continue;
-
-            const result = await response.json();
-
-            if (result.status === 'succeeded') {
-                const outputs = Array.isArray(result.output) ? result.output : [result.output];
-                return {
-                    video_url: outputs[0]
-                };
-            } else if (result.status === 'failed') {
-                throw new Error('Video generation failed');
-            }
-        }
-
-        throw new Error('Video generation timeout');
+        return response.json();
     }
 };
