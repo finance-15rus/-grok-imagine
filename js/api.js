@@ -218,8 +218,8 @@ const API = {
     async generateVideo(options) {
         const { prompt } = options;
 
-        // Use local worker proxy to bypass CORS
-        const workerUrl = '/video';
+        // Use Cloudflare Worker proxy to bypass CORS
+        const workerUrl = 'https://grok-imagine-video.opttorgrussia.workers.dev/video';
 
         const response = await fetch(workerUrl, {
             method: 'POST',
